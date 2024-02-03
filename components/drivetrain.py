@@ -23,7 +23,7 @@ class Drivetrain:
         self.frontLeftLocation = wpimath.geometry.Translation2d(0.381, 0.381)
         self.frontRightLocation = wpimath.geometry.Translation2d(0.381, -0.381)
         self.backLeftLocation = wpimath.geometry.Translation2d(-0.381, 0.381)
-        self.backRightLocation = wpimath.geometry.Translation2d(-0.381, -0.381)
+        self.backRightLocation = wpimath.geometry.Translation2d(-0.381, 0.381)
 
         self.frontLeft = swervemodule.SwerveModule(1, 2)
         self.frontRight = swervemodule.SwerveModule(3, 4)

@@ -6,3 +6,6 @@ sync:
 
 info: 
 	py -m robotpy deploy-info
+
+sim:
+	python -m robotpy sim
