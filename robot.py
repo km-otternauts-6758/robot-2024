@@ -60,6 +60,7 @@ class MyRobot(wpilib.TimedRobot):
 
         #Shoulder Speed
         self.shoulder.set(0.05)
+        
         leftMotor = create_motor_group(LEFT_MOTOR_GROUP_CONFIG)
         rightMotor = create_motor_group(RIGHT_MOTOR_GROUP_CONFIG)
 
