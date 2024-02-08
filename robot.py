@@ -16,8 +16,10 @@ from components import drivetrain
 from components.swervemodule import SwerveModule
 from components import hex
 from components import reciprocalmotors
-from components import Shooter 
+from components import Shooter
 from components import intakemotor
+#from components import vision 
+from components import tankdrive
 from rev import CANSparkMax
 
 #import booglefub
@@ -41,14 +43,19 @@ class MyRobot(wpilib.TimedRobot):
     def robotInit(self) -> None:
         """Robot initialization function"""
         self.joystick = wpilib.Joystick(0)
-        self.drive_stick = wpilib.XboxController(1)        
+        # self.drive_stick = wpilib.XboxController(1)        
         #self.swerve = drivetrain.Drivetrain()
         self.intake = intakemotor.IntakeMotors(8)
         self.shooter = Shooter.ReciprocalMotors(11, 7)
         self.shoulder = reciprocalmotors.ReciprocalMotors(10,9)
         self.hexEncoder = hex.HexEncoder()
+        self.position = wpilib.DutyCycleEncoder(0)
 
-        # self.drive = tankdrive.DifferentialDrive(tankdrive.robot.robotInit.left_group, tankdrive.robot.robotInit.right_group) 
+        #self.slider_multiplier = 1
+        
+
+        #         # Create Camera Server
+        wpilib.CameraServer.launch()
 
         # Slew rate limiters to make joystick inputs more gentle; 1/3 sec from 0 to 1.
         self.xspeedLimiter = wpimath.filter.SlewRateLimiter(3)
@@ -58,20 +65,23 @@ class MyRobot(wpilib.TimedRobot):
         #hex encoder stuff
         #print(self.hexEncoder.output)
 
+
+
         #Shoulder Speed
         self.shoulder.set(0.05)
         
-        leftMotor = create_motor_group(LEFT_MOTOR_GROUP_CONFIG)
-        rightMotor = create_motor_group(RIGHT_MOTOR_GROUP_CONFIG)
+        # leftMotor = create_motor_group(LEFT_MOTOR_GROUP_CONFIG)
+        # rightMotor = create_motor_group(RIGHT_MOTOR_GROUP_CONFIG)
 
-        self.leftGroup = wpilib.MotorControllerGroup(*leftMotor)
-        self.rightGroup = wpilib.MotorControllerGroup(*rightMotor)
+        # self.leftGroup = wpilib.MotorControllerGroup(*leftMotor)
+        # self.rightGroup = wpilib.MotorControllerGroup(*rightMotor)
 
         
 
-        self.rightGroup.setInverted(True)
-        self.robotDrive = wpilib.drive.DifferentialDrive(self.leftGroup, self.rightGroup)        
-        self.robotDrive.setExpiration(0.1)
+        # self.rightGroup.setInverted(True)
+        # self.robotDrive = wpilib.drive.DifferentialDrive(self.leftGroup, self.rightGroup)        
+        # self.robotDrive.setExpiration(0.1)
+        self.drivetrain = tankdrive.drivetrain()
     def autonomousPeriodic(self) -> None:
         self.driveWithJoystick(False)
         #self.swerve.updateOdometry()
@@ -128,8 +138,13 @@ class MyRobot(wpilib.TimedRobot):
             self.shooter.set(0)
         self.shoulder.set(self.joystick.getY())
         #self.drive_stick.setRumble(self.drive_stick.RumbleType.kBothRumble, 1)
-        # tankdrive.robot.robotInit.goon(
-        #     -self.drive_stick.getLeftY(), self.drive_stick.getRightX()
-        #     )
-        #self.drive.set(self.drive_stick.getRightX())
-        self.robotDrive.arcadeDrive(-self.drive_stick.getRawAxis(1), -self.drive_stick.getRawAxis(0))
+
+        # self.robotDrive.arcadeDrive(-self.drive_stick.getRawAxis(1), -self.drive_stick.getRawAxis(0))
+        self.drivetrain.drive()
+#Speed Multiplier based off of slider multiplier 
+        #self.robotDrive.arcadeDrive(self.joystick.getRawAxis(3) * self.slider_multiplier, True)
+
+
+        print(self.position.get())
+        if self.joystick.getRawButtonPressed(7):
+            self.position.setPositionOffset(.45)
