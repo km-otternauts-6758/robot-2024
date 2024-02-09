@@ -4,14 +4,18 @@
 # the WPILib BSD license file in the root directory of this project.
 #
 
+import navx
 import math
-import wpilib
 import wpimath.geometry
 import wpimath.kinematics
 from components import swervemodule
+from wpimath.units import inchesToMeters
 
 kMaxSpeed = 3.0  # 3 meters per second
 kMaxAngularSpeed = math.pi  # 1/2 rotation per second
+
+kChassisX = inchesToMeters(30) # Length
+kChassisY = inchesToMeters(30) # Width
 
 
 class Drivetrain:
@@ -20,17 +24,17 @@ class Drivetrain:
     """
 
     def __init__(self) -> None:
-        self.frontLeftLocation = wpimath.geometry.Translation2d(0.381, 0.381)
-        self.frontRightLocation = wpimath.geometry.Translation2d(0.381, -0.381)
-        self.backLeftLocation = wpimath.geometry.Translation2d(-0.381, 0.381)
-        self.backRightLocation = wpimath.geometry.Translation2d(-0.381, 0.381)
+        self.frontLeftLocation = wpimath.geometry.Translation2d(kChassisX / 2, kChassisY / 2)
+        self.frontRightLocation = wpimath.geometry.Translation2d(kChassisX /2, -kChassisY / 2)
+        self.backLeftLocation = wpimath.geometry.Translation2d(-kChassisX / 2, kChassisY / 2)
+        self.backRightLocation = wpimath.geometry.Translation2d(-kChassisX / 2, -kChassisY / 2)
 
-        self.frontLeft = swervemodule.SwerveModule(1, 2)
-        self.frontRight = swervemodule.SwerveModule(3, 4)
-        self.backLeft = swervemodule.SwerveModule(5, 6)
-        self.backRight = swervemodule.SwerveModule(7, 8)
+        self.frontLeft = swervemodule.SwerveModule(1, 2, 3)
+        self.frontRight = swervemodule.SwerveModule(3, 4, 1)
+        self.backLeft = swervemodule.SwerveModule(5, 6, 2)
+        self.backRight = swervemodule.SwerveModule(7, 8, 0)
 
-        self.gyro = wpilib.AnalogGyro(0)
+        self.gyro = navx.AHRS.create_spi()
 
         self.kinematics = wpimath.kinematics.SwerveDrive4Kinematics(
             self.frontLeftLocation,
@@ -81,10 +85,14 @@ class Drivetrain:
         wpimath.kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(
             swerveModuleStates, kMaxSpeed
         )
-        self.frontLeft.setDesiredState(swerveModuleStates[3])
+        self.frontLeft.setDesiredState(swerveModuleStates[0])
         self.frontRight.setDesiredState(swerveModuleStates[1])
         self.backLeft.setDesiredState(swerveModuleStates[2])
-        self.backRight.setDesiredState(swerveModuleStates[0])
+        self.backRight.setDesiredState(swerveModuleStates[3])
+
+        print(f"Absolute: {self.frontLeft.getAbsoluteAngle().radians()}")
+        print(f"Relative: {self.frontLeft.getRelativeAngle().radians()}")
+
 
     def updateOdometry(self) -> None:
         """Updates the field relative position of the robot."""
@@ -97,3 +105,9 @@ class Drivetrain:
                 self.backRight.getPosition(),
             ),
         )
+
+    def resetToAbsolute(self) -> None:
+        self.frontLeft.resetToAbsolute()
+        self.frontRight.resetToAbsolute()
+        self.backLeft.resetToAbsolute()
+        self.backRight.resetToAbsolute
