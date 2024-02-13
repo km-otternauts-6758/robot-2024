@@ -12,6 +12,16 @@ import wpilib.drive
 import wpimath.filter
 import wpimath.controller
 from components import drivetrain
+
+from dataclasses import dataclass, fields
+from components import drivetrain
+from components.swervemodule import SwerveModule
+
+from components import reciprocalmotors
+from components import shooter
+#from components import vision 
+from rev import CANSparkMax
+from wpilib import SmartDashboard
 class MyRobot(wpilib.TimedRobot):
     def robotInit(self) -> None:
         """Robot initialization function"""
@@ -21,6 +31,16 @@ class MyRobot(wpilib.TimedRobot):
         self.xspeedLimiter = wpimath.filter.SlewRateLimiter(3)
         self.yspeedLimiter = wpimath.filter.SlewRateLimiter(3)
         self.rotLimiter = wpimath.filter.SlewRateLimiter(3)
+        self.dutyCycle = wpilib.DutyCycle(wpilib.DigitalInput(1))
+
+                # hex encoder stuff
+        print(self.dutyCycle.getOutput())
+
+        """Robot initialization function"""
+
+        self.dutyCycleEncoder = wpilib.DutyCycleEncoder(0)
+
+        self.dutyCycleEncoder.setDistancePerRotation(1)
         
 
 
@@ -69,5 +89,30 @@ class MyRobot(wpilib.TimedRobot):
 
 
     def teleopPeriodic(self) -> None:
+            # Connected can be checked, and uses the frequency of the encoder
+        connected = self.dutyCycleEncoder.isConnected()
+
+            # Duty Cycle Frequency in Hz
+        frequency = self.dutyCycleEncoder.getFrequency()
+
+            # Output of encoder
+        output = self.dutyCycleEncoder.getAbsolutePosition()
+
+            # Output scaled by DistancePerPulse
+        distance = self.dutyCycleEncoder.getDistance()
+
+        # wpilib.SmartDashboard.putBoolean("Connected", connected)
+        # wpilib.SmartDashboard.putNumber("Frequency", frequency)
+        # wpilib.SmartDashboard.putNumber("Output", output)
+        # wpilib.SmartDashboard.putNumber("Distance", distance)
+
         self.driveWithJoystick(True)
-        
+        # Duty Cycle Frequency in Hz
+        frequency = self.dutyCycle.getFrequency()
+
+        # Output of duty cycle, ranging from 0 to 1
+        # 1 is fully on, 0 is fully off
+        # output = self.dutyCycle.getOutput()
+
+        # wpilib.SmartDashboard.putNumber("Frequency", frequency)
+        # wpilib.SmartDashboard.putNumber("Duty Cycle", output)

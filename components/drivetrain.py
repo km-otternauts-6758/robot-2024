@@ -7,9 +7,12 @@
 import navx
 import math
 import wpimath.geometry
+from wpimath.geometry import Rotation2d
 import wpimath.kinematics
 from components import swervemodule
 from wpimath.units import inchesToMeters
+
+
 
 kMaxSpeed = 3.0  # 3 meters per second
 kMaxAngularSpeed = math.pi  # 1/2 rotation per second
@@ -55,6 +58,44 @@ class Drivetrain:
         )
 
         self.gyro.reset()
+        # get the default instance of NetworkTables
+
+    # def drive(
+    #     self,
+    #     xSpeed: float,
+    #     ySpeed: float,
+    #     rot: float,
+    #     fieldRelative: bool,
+    #     periodSeconds: float,
+    # ) -> None:
+    #     """
+    #     Method to drive the robot using joystick info.
+    #     :param xSpeed: Speed of the robot in the x direction (forward).
+    #     :param ySpeed: Speed of the robot in the y direction (sideways).
+    #     :param rot: Angular rate of the robot.
+    #     :param fieldRelative: Whether the provided x and y speeds are relative to the field.
+    #     :param periodSeconds: Time
+    #     """
+    #     swerveModuleStates = self.kinematics.toSwerveModuleStates(
+    #         wpimath.kinematics.ChassisSpeeds.discretize(
+    #             wpimath.kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
+    #                 xSpeed, ySpeed, rot, self.gyro.getRotation2d()
+    #             )
+    #             if fieldRelative
+    #             else wpimath.kinematics.ChassisSpeeds(xSpeed, ySpeed, rot),
+    #             periodSeconds,
+    #         )
+    #     )
+    #     wpimath.kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(
+    #         swerveModuleStates, kMaxSpeed
+    #     )
+    #     self.frontLeft.setDesiredState(swerveModuleStates[0])
+    #     self.frontRight.setDesiredState(swerveModuleStates[1])
+    #     self.backLeft.setDesiredState(swerveModuleStates[2])
+    #     self.backRight.setDesiredState(swerveModuleStates[3])
+
+    #     print(f"Absolute: {self.frontLeft.getAbsoluteAngle().radians()}")
+    #     print(f"Relative: {self.frontLeft.getRelativeAngle().radians()}")
 
     def drive(
         self,
@@ -64,34 +105,29 @@ class Drivetrain:
         fieldRelative: bool,
         periodSeconds: float,
     ) -> None:
-        """
-        Method to drive the robot using joystick info.
-        :param xSpeed: Speed of the robot in the x direction (forward).
-        :param ySpeed: Speed of the robot in the y direction (sideways).
-        :param rot: Angular rate of the robot.
-        :param fieldRelative: Whether the provided x and y speeds are relative to the field.
-        :param periodSeconds: Time
-        """
         swerveModuleStates = self.kinematics.toSwerveModuleStates(
             wpimath.kinematics.ChassisSpeeds.discretize(
                 wpimath.kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
                     xSpeed, ySpeed, rot, self.gyro.getRotation2d()
-                )
+                )   
                 if fieldRelative
                 else wpimath.kinematics.ChassisSpeeds(xSpeed, ySpeed, rot),
                 periodSeconds,
             )
         )
+
+        for i, state in enumerate(swerveModuleStates):
+            print(f"Desired State {i}: Speed={state.speed}, Angle={state.angle}")
+            actualState = self.frontLeft.getState()
+            print(f"Actual State {i}: Speed={actualState.speed}, Angle={actualState.angle}")
+
         wpimath.kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(
             swerveModuleStates, kMaxSpeed
         )
-        self.frontLeft.setDesiredState(swerveModuleStates[0])
+        self.frontLeft.setDesiredState(swerveModuleStates[3])
         self.frontRight.setDesiredState(swerveModuleStates[1])
         self.backLeft.setDesiredState(swerveModuleStates[2])
-        self.backRight.setDesiredState(swerveModuleStates[3])
-
-        print(f"Absolute: {self.frontLeft.getAbsoluteAngle().radians()}")
-        print(f"Relative: {self.frontLeft.getRelativeAngle().radians()}")
+        self.backRight.setDesiredState(swerveModuleStates[0])
 
 
     def updateOdometry(self) -> None:
@@ -110,4 +146,4 @@ class Drivetrain:
         self.frontLeft.resetToAbsolute()
         self.frontRight.resetToAbsolute()
         self.backLeft.resetToAbsolute()
-        self.backRight.resetToAbsolute
+        self.backRight.resetToAbsolute()
