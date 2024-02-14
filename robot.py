@@ -11,19 +11,14 @@ import wpimath
 import wpilib.drive
 import wpimath.filter
 import wpimath.controller
-from dataclasses import dataclass, fields
-from components import drivetrain
-from components.swervemodule import SwerveModule
-from components import hex
 from components import reciprocalmotors
 from components import Shooter
 from components import intakemotor
+from dataclasses import dataclass, fields
 #from components import vision 
-from components import tankdrive
 from rev import CANSparkMax
-
-#import booglefub
-
+from wpilib import SmartDashboard
+from limelight import limelight
 
 @dataclass
 class MotorGroupConfig:
@@ -39,96 +34,117 @@ def create_motor_group(
         motor_group_config: MotorGroupConfig) -> list[CANSparkMax]:
     return [CANSparkMax(getattr(motor_group_config, field.name), CANSparkMax.MotorType.kBrushless) for field in fields(motor_group_config)]
     
+
 class MyRobot(wpilib.TimedRobot):
     def robotInit(self) -> None:
         """Robot initialization function"""
         self.joystick = wpilib.Joystick(0)
-        # self.drive_stick = wpilib.XboxController(1)        
-        #self.swerve = drivetrain.Drivetrain()
-        self.intake = intakemotor.IntakeMotors(8)
+        self.intake = intakemotor.MotorIntake(8)
         self.shooter = Shooter.ReciprocalMotors(11, 7)
         self.shoulder = reciprocalmotors.ReciprocalMotors(10,9)
-        self.hexEncoder = hex.HexEncoder()
-        self.position = wpilib.DutyCycleEncoder(0)
-
-        #self.slider_multiplier = 1
-        
-
-        #         # Create Camera Server
-        wpilib.CameraServer.launch()
-
         # Slew rate limiters to make joystick inputs more gentle; 1/3 sec from 0 to 1.
         self.xspeedLimiter = wpimath.filter.SlewRateLimiter(3)
         self.yspeedLimiter = wpimath.filter.SlewRateLimiter(3)
         self.rotLimiter = wpimath.filter.SlewRateLimiter(3)
+        self.dutyCycle = wpilib.DutyCycle(wpilib.DigitalInput(1))
 
-        #hex encoder stuff
-        #print(self.hexEncoder.output)
+                # hex encoder stuff
+        print(self.dutyCycle.getOutput())
 
+        """Robot initialization function"""
 
+        self.dutyCycleEncoder = wpilib.DutyCycleEncoder(0)
 
-        #Shoulder Speed
-        self.shoulder.set(0.05)
+        self.dutyCycleEncoder.setDistancePerRotation(1)
         
-        # leftMotor = create_motor_group(LEFT_MOTOR_GROUP_CONFIG)
-        # rightMotor = create_motor_group(RIGHT_MOTOR_GROUP_CONFIG)
+        self.drive_stick = wpilib.XboxController(1)
+          
+        leftMotor = create_motor_group(LEFT_MOTOR_GROUP_CONFIG)
+        rightMotor = create_motor_group(RIGHT_MOTOR_GROUP_CONFIG)
 
-        # self.leftGroup = wpilib.MotorControllerGroup(*leftMotor)
-        # self.rightGroup = wpilib.MotorControllerGroup(*rightMotor)
+        self.leftGroup = wpilib.MotorControllerGroup(*leftMotor)
+        self.rightGroup = wpilib.MotorControllerGroup(*rightMotor)
+        self.rightGroup.setInverted(True)
+        self.robotDrive = wpilib.drive.DifferentialDrive(self.leftGroup, self.rightGroup)        
+        self.robotDrive.setExpiration(0.1)
 
+    # def autonomousPeriodic(self) -> None:
+    #self.driveWithJoystick(False)
+    #     self.swerve.updateOdometry()
+
+
+    # def driveWithJoystick(self, fieldRelative: bool) -> None:
+    #     # Get the x speed. We are inverting this because Xbox controllers return
+    #     # negative values when we push forward.
+    #     xSpeed = (
+    #         self.xspeedLimiter.calculate(
+    #             wpimath.applyDeadband(self.joystick.getY(), 0.5)
+    #         )
+    #         * drivetrain.kMaxSpeed
+    #     )
+
+    #     # Get the y speed or sideways/strafe speed. We are inverting this because
+    #     # we want a positive value when we pull to the left. Xbox controllers
+    #     # return positive values when you pull to the right by default.
+    #     ySpeed = (
+    #         self.yspeedLimiter.calculate(
+    #             wpimath.applyDeadband(self.joystick.getX(), 0.5)
+    #         )
+    #         * drivetrain.kMaxSpeed
+    #     )
+
+    #     # Get the rate of angular rotation. We are inverting this because we want a
+    #     # positive value when we pull to the left (remember, CCW is positive in
+    #     # mathematics). Xbox controllers return positive values when you pull to
+    #     # the right by default.
+    #     rot = (
+    #         self.rotLimiter.calculate(
+    #             wpimath.applyDeadband(self.joystick.getZ(), 0.5)
+    #         )
+    #         * drivetrain.kMaxSpeed
+    #     )
+
+    #     self.swerve.drive(xSpeed, ySpeed, rot, fieldRelative, self.getPeriod())
         
 
-        # self.rightGroup.setInverted(True)
-        # self.robotDrive = wpilib.drive.DifferentialDrive(self.leftGroup, self.rightGroup)        
-        # self.robotDrive.setExpiration(0.1)
-        self.drivetrain = tankdrive.drivetrain()
-    def autonomousPeriodic(self) -> None:
-        self.driveWithJoystick(False)
-        #self.swerve.updateOdometry()
+    def teleopInit(self) -> None:
+        # self.swerve.resetToAbsolute()
+        pass
 
-        #self.intake.set(self.joystick.getY())
-
-        #self.shooter.set(self.joystick.getX())
-        
-        
-
-
-    def driveWithJoystick(self, fieldRelative: bool) -> None:
-        # Get the x speed. We are inverting this because Xbox controllers return
-        # negative values when we push forward.
-        xSpeed = (
-            self.xspeedLimiter.calculate(
-                wpimath.applyDeadband(self.joystick.getY(), 0.05)
-            )
-            * drivetrain.kMaxSpeed
-        )
-
-        # Get the y speed or sideways/strafe speed. We are inverting this because
-        # we want a positive value when we pull to the left. Xbox controllers
-        # return positive values when you pull to the right by default.
-        ySpeed = (
-            self.yspeedLimiter.calculate(
-                wpimath.applyDeadband(self.joystick.getX(), 0.05)
-            )
-            * drivetrain.kMaxSpeed
-        )
-
-        # Get the rate of angular rotation. We are inverting this because we want a
-        # positive value when we pull to the left (remember, CCW is positive in
-        # mathematics). Xbox controllers return positive values when you pull to
-        # the right by default.
-        rot = (
-            self.rotLimiter.calculate(
-                wpimath.applyDeadband(self.joystick.getZ(), 0.05)
-            )
-            * drivetrain.kMaxSpeed
-        )
-
-        #self.swerve.drive(xSpeed, ySpeed, rot, fieldRelative, self.getPeriod())
-        
 
     def teleopPeriodic(self) -> None:
-        #self.driveWithJoystick(True)
+
+        print(self.dutyCycle.getOutput())
+
+            # Connected can be checked, and uses the frequency of the encoder
+        connected = self.dutyCycleEncoder.isConnected()
+
+            # Duty Cycle Frequency in Hz
+        frequency = self.dutyCycleEncoder.getFrequency()
+
+            # Output of encoder
+        output = self.dutyCycleEncoder.getAbsolutePosition()
+
+            # Output scaled by DistancePerPulse
+        distance = self.dutyCycleEncoder.getDistance()
+
+        wpilib.SmartDashboard.putBoolean("Connected", connected)
+        wpilib.SmartDashboard.putNumber("Frequency", frequency)
+        wpilib.SmartDashboard.putNumber("Output", output)
+        wpilib.SmartDashboard.putNumber("Distance", distance)
+
+        # self.driveWithJoystick(True)
+        # Duty Cycle Frequency in Hz
+        frequency = self.dutyCycle.getFrequency()
+
+        # Output of duty cycle, ranging from 0 to 1
+        # 1 is fully on, 0 is fully off
+        # output = self.dutyCycle.getOutput()
+
+        wpilib.SmartDashboard.putNumber("Frequency", frequency)
+        wpilib.SmartDashboard.putNumber("Duty Cycle", output)
+
+        self.robotDrive.arcadeDrive(-self.drive_stick.getRawAxis(1), -self.drive_stick.getRawAxis(0))
         self.intake.set(self.joystick.getRawButton(2))
         if self.joystick.getRawButton(1):
             self.shooter.set(self.joystick.getRawButton(1))
@@ -137,14 +153,3 @@ class MyRobot(wpilib.TimedRobot):
         else:
             self.shooter.set(0)
         self.shoulder.set(self.joystick.getY())
-        #self.drive_stick.setRumble(self.drive_stick.RumbleType.kBothRumble, 1)
-
-        # self.robotDrive.arcadeDrive(-self.drive_stick.getRawAxis(1), -self.drive_stick.getRawAxis(0))
-        self.drivetrain.drive()
-#Speed Multiplier based off of slider multiplier 
-        #self.robotDrive.arcadeDrive(self.joystick.getRawAxis(3) * self.slider_multiplier, True)
-
-
-        print(self.position.get())
-        if self.joystick.getRawButtonPressed(7):
-            self.position.setPositionOffset(.45)
