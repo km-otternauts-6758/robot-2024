@@ -33,7 +33,6 @@ RIGHT_MOTOR_GROUP_CONFIG = MotorGroupConfig(
 def create_motor_group(
         motor_group_config: MotorGroupConfig) -> list[CANSparkMax]:
     return [CANSparkMax(getattr(motor_group_config, field.name), CANSparkMax.MotorType.kBrushless) for field in fields(motor_group_config)]
-    
 
 class MyRobot(wpilib.TimedRobot):
     def robotInit(self) -> None:
@@ -69,40 +68,28 @@ class MyRobot(wpilib.TimedRobot):
         self.rightGroup.setInverted(True)
         self.robotDrive = wpilib.drive.DifferentialDrive(self.leftGroup, self.rightGroup)        
         self.robotDrive.setExpiration(0.1)
+        self.autonTimer = wpilib.Timer()
 
+    def  setMotors(self, forward:float, turn: float):
+        self.robotDrive.arcadeDrive(forward, turn)    
+
+    def autonomousInit(self) -> None:
+        self.autonTimer.start()
+        self.robotDrive.feed()
+        self.robotDrive.setSafetyEnabled(True)
     def autonomousPeriodic(self) -> None:
-        self.driveWithJoystick(False)
+        if self.autonTimer.get() <= .5:
+            if self.dutyCycle.getOutput() >= 0.361:
+                self.shoulder.set(-0.5)
+        elif self.autonTimer.get() >= .6:
+            self.shooter.set(0.5)
+            self.intake.set(1)
+        elif self.autonTimer.get() >= .9:
+            self.setMotors(0.5, 0.0)
+        elif self.autonTimer.get() >= 1.1: 
+            self.setMotors(0.0 , 0.0)
 
 
-    def driveWithJoystick(self, fieldRelative: bool) -> None:
-        # Get the x speed. We are inverting this because Xbox controllers return
-        # negative values when we push forward.
-        xSpeed = (
-            self.xspeedLimiter.calculate(
-                wpimath.applyDeadband(self.joystick.getY(), 0.5)
-            )
-        )
-
-        # Get the y speed or sideways/strafe speed. We are inverting this because
-        # we want a positive value when we pull to the left. Xbox controllers
-        # return positive values when you pull to the right by default.
-        ySpeed = (
-            self.yspeedLimiter.calculate(
-                wpimath.applyDeadband(self.joystick.getX(), 0.5)
-            )
-        )
-
-        # Get the rate of angular rotation. We are inverting this because we want a
-        # positive value when we pull to the left (remember, CCW is positive in
-        # mathematics). Xbox controllers return positive values when you pull to
-        # the right by default.
-        rot = (
-            self.rotLimiter.calculate(
-                wpimath.applyDeadband(self.joystick.getZ(), 0.5)
-            )
-        )
-
-        
 
     def robotPeriodic(self) -> None:
         voltage = self.pdp.getVoltage()
@@ -137,27 +124,37 @@ class MyRobot(wpilib.TimedRobot):
         wpilib.SmartDashboard.putNumber("Frequency", frequency)
         wpilib.SmartDashboard.putNumber("Duty Cycle", output)
 
+        wpimath.applyDeadband(self.joystick.getY(), 0.5)
+
         self.robotDrive.arcadeDrive(-self.drive_stick.getRawAxis(1), -self.drive_stick.getRawAxis(0))
-        self.intake.set(self.joystick.getRawButton(2))
+        if self.joystick.getRawButton(2):
+            self.intake.set(2)
+        else:
+            self.intake.set(0)
         if self.joystick.getRawButton(1):
-            self.drive_stick.setRumble(self.drive_stick.RumbleType.kBothRumble, 0.25)
-            self.shooter.set(self.joystick.getRawButton(1))
+            self.drive_stick.setRumble(self.drive_stick.RumbleType.kBothRumble, 0.1)
+            self.shooter.set(self.joystick.getRawButton(1) * .55)
         elif self.joystick.getRawButton(3):
-            self.drive_stick.setRumble(self.drive_stick.RumbleType.kBothRumble, 0.25)
-            self.shooter.set(-self.joystick.getRawButton(3))
+            self.drive_stick.setRumble(self.drive_stick.RumbleType.kBothRumble, 0.1)
+            self.shooter.set(-self.joystick.getRawButton(3) * .55)
         else:
             self.shooter.set(0)
             self.drive_stick.setRumble(self.drive_stick.RumbleType.kBothRumble, 0)
-        self.shoulder.set(self.joystick.getY())
+        self.shoulder.set(self.joystick.getY() * .5)
 
-
+        
 
         if self.joystick.getRawButton(6):
             self.shoulder.set(0.3)
             if self.dutyCycle.getOutput() == 0.9750:
                 self.shoulder.set(0)
+                
 
         if self.joystick.getRawButton(4):
             self.shoulder.set(0.3)
             if self.dutyCycle.getOutput() == 0.778:
                 self.shoulder.set(0)
+        if self.joystick.getRawButton(11):
+            self.setMotors(0, 1)
+        else:
+            self.setMotors(0,0)
