@@ -12,3 +12,5 @@ list:
 
 sim:
 	python -m robotpy sim
+delete:
+	py -m robotpy undeploy
