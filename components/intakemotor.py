@@ -6,4 +6,3 @@ class MotorIntake:
 
     def set(self, speed: float) -> None:
         self.leftMotor.set(speed)
-    

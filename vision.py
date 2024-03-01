@@ -1,19 +1,30 @@
-import numpy as np
+# NOTE: This code runs in its own process, so we cannot access the robot here,
+#       nor can we create/use/see wpilib objects
+#
+# To try this code out locally (if you have robotpy-cscore installed), you
+# can execute `python3 -m cscore vision.py:main`
+#
+
 import cv2
+import numpy as np
+
 from cscore import CameraServer as CS
-from . import vision
+
 
 def main():
     CS.enableLogging()
 
     # Get the UsbCamera from CameraServer
-    camera = CS.startAutomaticCapture()
+    camera1 = CS.startAutomaticCapture()
+    camera2 = CS.startAutomaticCapture()
     # Set the resolution
-    camera.setResolution(640, 480)
+    camera1.setResolution(640, 480)
+    camera2.setResolution(640, 480)
 
     # Get a CvSink. This will capture images from the camera
     cvSink = CS.getVideo()
     # Setup a CvSource. This will send images back to the Dashboard
+    # outputStream = CS.putVideo("Default", 640, 480)
     outputStream = CS.putVideo("Rectangle", 640, 480)
 
     # Allocating new images is very expensive, always try to preallocate
@@ -34,3 +45,5 @@ def main():
 
         # Give the output stream a new image to display
         outputStream.putFrame(mat)
+
+    CS.waitForever()

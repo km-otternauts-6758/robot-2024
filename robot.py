@@ -6,6 +6,7 @@
 #
 
 #from msilib.schema import Component
+from ntcore import NetworkTableInstance
 from wpilib.cameraserver import CameraServer
 import wpilib
 import wpimath
@@ -16,27 +17,14 @@ from components import arm
 from components import Shooter
 from components import intakemotor
 from dataclasses import dataclass, fields
-#from components import vision 
-from wpilib import SmartDashboard
+from wpilib import DutyCycle, SmartDashboard
 from rev import CANSparkMax
 from networktables import NetworkTables
 from components.limelight import LimeLight
 from components.drivetrain import Drivetrain
+from components.motorgroup import MotorGroup
+import math
 
-
-@dataclass
-class MotorGroupConfig:
-    left_motor: int
-    right_motor: int
-
-LEFT_MOTOR_GROUP_CONFIG = MotorGroupConfig(
-    left_motor=3, right_motor=4)
-RIGHT_MOTOR_GROUP_CONFIG = MotorGroupConfig(
-    left_motor=1, right_motor=2)
-
-def create_motor_group(
-        motor_group_config: MotorGroupConfig) -> list[CANSparkMax]:
-    return [CANSparkMax(getattr(motor_group_config, field.name), CANSparkMax.MotorType.kBrushless) for field in fields(motor_group_config)]
 
 class MyRobot(wpilib.TimedRobot):
     def robotInit(self) -> None:
@@ -45,127 +33,306 @@ class MyRobot(wpilib.TimedRobot):
         self.intake = intakemotor.MotorIntake(8)
         self.shooter = Shooter.ReciprocalMotors(11, 7)
         self.shoulder = arm.ReciprocalMotors(10,9)
-        # Slew rate limiters to make joystick inputs more gentle; 1/3 sec from 0 to 1.
+    #Slew rate limiters to make joystick inputs more gentle; 1/3 sec from 0 to 1.
         self.xspeedLimiter = wpimath.filter.SlewRateLimiter(3)
         self.yspeedLimiter = wpimath.filter.SlewRateLimiter(3)
         self.rotLimiter = wpimath.filter.SlewRateLimiter(3)
+    #Hex Encoder and pdp
         self.dutyCycle = wpilib.DutyCycle(wpilib.DigitalInput(1))
         self.pdp = wpilib.PowerDistribution()
+    #Networktables and Limelight Init
         NetworkTables.initialize(server="10.67.58.2")
-        # self.limelight = NetworkTables.getTable("limelight-kmrobot")
-        # print(f"tv: {self.limelight.getEntry("tv")}")
+        self.limelight = NetworkTables.getTable("limelight-kmrobot")
 
-                # hex encoder stuff
-        print(self.dutyCycle.getOutput())
-
-        """Robot initialization function"""
-
+            #hex encoder stuff
         self.dutyCycleEncoder = wpilib.DutyCycleEncoder(0)
-
-        self.dutyCycleEncoder.setDistancePerRotation(1)
+        self.dutyCycleEncoder.setDistancePerRotation(360)
+        # self.dutyCycleEncoder.reset()
         
-        self.drive_stick = wpilib.XboxController(1)
+        self.driveStick = wpilib.XboxController(1)
         self.robotDrive = Drivetrain()
         self.autonTimer = wpilib.Timer()
-
+        self.autonTimer.reset()
+#Auton Chooser
+        self.auton = 1
+        self.autonSteps = 1
         wpilib.CameraServer.launch()
-        self.limelight = NetworkTables.getTable("limelight")
-        print(self.limelight.getNumber('<tx>', 1))
+        
+        # self.limelight = LimeLight()
+        # self.limelight.robotInit()
+        self.ty = self.limelight.getEntry("ty")
+        self.limelight.putValue("priorityid", 4)
 
     def  setMotors(self, forward:float, turn: float):
         self.robotDrive.drive(forward, turn)    
 
     def autonomousInit(self) -> None:
+        self.autonTimer.reset()
         self.autonTimer.start()
+        self.limelight.setDefaultValue("priorityid", 4)
+        # self.automodes.start()
+        # self.dutyCycleEncoder.reset()
 
+#Auton Periodic
     def autonomousPeriodic(self) -> None:
-        if self.autonTimer.get() <= .5:
-            if self.dutyCycle.getOutput() >= 0.361:
-                self.shoulder.set(-0.5)
-        elif self.autonTimer.get() >= .6:
-            self.shooter.set(0.5)
-            self.intake.set(1)
-        elif self.autonTimer.get() >= .9:
-            self.setMotors(0.5, 0.0)
-        elif self.autonTimer.get() >= 1.1: 
-            self.setMotors(0.0 , 0.0)
-        # pass
+        # print(self.limelight.getNumber("tx", 0))
+        print("Hex: ", self.dutyCycle.getOutput())
+        print("AutoAimAngle: ", self.autoAim)
+
+        if self.auton == 6758:
+            print("Priority Id: ", self.limelight.getNumber("priorityid", 4))
 
 
+#Auton
+        if self.auton == 1:
 
+            if self.limelight.getNumber("tv", 0):
+                if self.autonSteps == 1:
+                    self.shooter.set(0.65)
+                    self.shoulder.set(-.5)
+                    if self.dutyCycle.getOutput() >= .5935:
+                        self.shoulder.set(0)  
+
+                    if self.autonTimer.get() >= 2:
+                            self.intake.set(1)
+                            self.autonSteps = 2
+                if self.autonSteps == 2:
+                    if self.autonTimer.get() >=2.5:
+                        self.setMotors(.4,0)
+                        self.shooter.set(0)
+                        self.shoulder.set(-.45)
+
+                        if self.dutyCycle.getOutput() >= .69:
+                            self.shoulder.set(0)
+                            self.shooter.set(-0.25)
+                            self.intake.set(1)
+                        if self.autonTimer.get() >= 5:
+                            self.autonSteps = 3
+                if self.autonSteps == 3:
+                        if self.autonTimer.get() >=5.5:
+                                self.setMotors(0,0)
+                                self.shooter.set(0)
+                                self.intake.set(0)
+                                self.shoulder.set(0)
+            # if self.limelight.getNumber("tv", 0):
+            #     self.shooter.set(0.65)
+            #     self.shoulder.set(-.5)
+
+            #     if self.dutyCycle.getOutput() >= .595:
+            #          self.shoulder.set(0)  
+
+            #     if self.autonTimer.get() >= 2:
+            #             self.intake.set(1)
+
+            #     if self.autonTimer.get() >=2.5:
+            #         self.setMotors(.4,0)
+            #         self.shooter.set(-0.25)
+            #         self.shoulder.set(-.75)
+
+            #     if self.dutyCycle.getOutput() >= .695:
+            #             self.shoulder.set(0)
+            #             self.intake.set(0)
+            #             self.intake.set(1)
+
+            #     if self.autonTimer.get() >=6:
+            #         self.setMotors(0,0)
+            #         self.shooter.set(0)
+            #         self.intake.set(0)
+            
+            #     if self.autonTimer.get() >=6.6:
+            #         self.setMotors(-.7,0)
+
+            #     if self.autonTimer.get() >=7:
+            #         self.setMotors(0,0)
+            #         self.shoulder.set(0)
+ #Back up, turns left, mainly for red team on the opposite side of amp(the vertical input box/little thing).       
+        elif self.auton == 2:
+            if self.limelight.getNumber("tv", 0):
+                if self.autonSteps == 1:
+                    self.shooter.set(0.65)
+                    self.shoulder.set(-.5)
+
+                    if self.dutyCycle.getOutput() >= .595:
+                        self.shoulder.set(0)  
+
+                    if self.autonTimer.get() >= 2:
+                        self.intake.set(1)
+
+                    if self.autonTimer.get() >= 2.1:
+                        self.setMotors(.4, 0)
+
+                    if self.autonTimer.get() >=2.5:
+                        self.setMotors(0, -0.2)
+                        # self.shooter.set(-0.15)
+                        # self.shoulder.set(-.6)
+                        self.autonSteps = 2
+                    if self.autonSteps == 2:
+                        if self.autonTimer.get() >= 2.7:
+                            self.setMotors(0.4, 0)
+                        
+                        if self.autonTimer.get() >= 3:
+                            self.setMotors(0, 0)
+                        # if self.dutyCycle.getOutput() >= .695:
+                        #         self.shoulder.set(0)
+                        #         self.intake.set(0)
+                        #         self.intake.set(1)
+
+                        if self.autonTimer.get() >=6:
+                            self.setMotors(0,0)
+                            # self.intake.set(0)
+
+                        # if self.autonTimer.get() >=6.6:
+                        #     self.setMotors(-.7,0)
+
+                        # if self.autonTimer.get() >=7:
+                        #     self.setMotors(0,0)
+                        #     self.shoulder.set(.8)
+
+#Back up, turns right, mainly for blue team on the opposite side of amp(the vertical input box/little thing).
+        elif self.auton == 3:            
+            if self.limelight.getNumber("tv", 0):
+                if self.autonSteps == 1:
+                    self.shooter.set(0.65)
+                    self.shoulder.set(-.5)
+
+                    if self.dutyCycle.getOutput() >= .595:
+                        self.shoulder.set(0)  
+
+                    if self.autonTimer.get() >= 2:
+                        self.intake.set(1)
+
+                    if self.autonTimer.get() >= 2.1:
+                        self.setMotors(.4, 0)
+
+                    if self.autonTimer.get() >=2.5:
+                        self.setMotors(0, -0.2)
+                        # self.shooter.set(-0.15)
+                        # self.shoulder.set(-.6)
+                        self.autonSteps = 2
+                    if self.autonSteps == 2:
+                        if self.autonTimer.get() >= 2.7:
+                            self.setMotors(0.4, 0)
+                        
+                        if self.autonTimer.get() >= 3:
+                            self.setMotors(0, 0)
+                        # if self.dutyCycle.getOutput() >= .695:
+                        #         self.shoulder.set(0)
+                        #         self.intake.set(0)
+                        #         self.intake.set(1)
+
+                        if self.autonTimer.get() >=6:
+                            self.setMotors(0,0)
+                            # self.intake.set(0)
+
+                        # if self.autonTimer.get() >=6.6:
+                        #     self.setMotors(-.7,0)
+
+                        # if self.autonTimer.get() >=7:
+                        #     self.setMotors(0,0)
+                        #     self.shoulder.set(.8)
+# #problems with setting two values to set motor to in the same auton
+#     #Possible Fix: Auton Steps, possibly does not intefere with eachothers values.
+
+#             if self.autonTimer.get() >=7.2:
+#                 self.shoulder.set(0)
+#                 self.shooter.set(0.7)
+
+#             if self.autonTimer.get() >= 13:
+#                     self.intake.set(1)
+            
     def robotPeriodic(self) -> None:
-        # voltage = self.pdp.getVoltage()
-        # wpilib.SmartDashboard.putNumber("Voltage", voltage)
-        # temperatureCelcius = self.pdp.getTemperature()
-        # wpilib.SmartDashboard.putNumber("Temperature Celcius", temperatureCelcius)
-        # totalPower = self.pdp.getTotalPower()
-        # wpilib.SmartDashboard.putNumber("Total Power", totalPower)
-        pass
+#Soft stop.
+        # if self.dutyCycle.getOutput() >= .71 or self.dutyCycle.getOutput() <= .43:
+        #     self.shoulder.set(0)
+#Distance Estimator
+        targetOffsetAngleVertical = self.ty.getDouble(0.0)
+        limelightMountAngleDegrees = 30.0
+        limelightLensHeightInches = 11.5
+        goalHeightInches = 78.0
+
+        self.angleToGoalDegrees = limelightMountAngleDegrees + targetOffsetAngleVertical
+        angleToGoalRadians = self.angleToGoalDegrees * (3.14159 / 180.0)
+
+        self.distance = (goalHeightInches - limelightLensHeightInches) / math.tan(angleToGoalRadians)
+
+#team 1716 gave us ethernet switch, thank you.
+#Angle Estimator
+        self.autoAim = (0.6401 *  pow(0.9995, self.distance))
+
+
     def teleopInit(self) -> None:
-        # self.swerve.resetToAbsolute()
+#Shoulder Limit
         pass
 
 
     def teleopPeriodic(self) -> None:
+        # print("Normal Offset: ", self.limelight.getNumber("ty", 0.0))
+        # print("Double Offset: ", self.ty.getDouble(0.0))
+        # print("Hex: ", self.dutyCycle.getOutput())
+        print("Distance: ", self.distance)
+        print("Hex: ", self.dutyCycle.getOutput())
+        print("AutoAimAngle: ", self.autoAim)
+        # print(self.distance)
+        # print (self.limelight.getEntry("ty"))
+        # print (self.distance)
+    
+#Shoulder Limit
+        # if self.dutyCycle.getOutput() <= .39 >= 0:
+        #     self.shoulder.set(0)
 
-        print(self.dutyCycle.getOutput())
+#Camera Server
+        wpilib.CameraServer.launch('vision.py:main')
         CameraServer.is_alive()
-        print(CameraServer.is_alive())
 
-        #     # Duty Cycle Frequency in Hz
-        # frequency = self.dutyCycleEncoder.getFrequency()
-        #     # Output of encoder
-        # output = self.dutyCycleEncoder.getAbsolutePosition()
-        #     # Output scaled by DistancePerPulse
-        # distance = self.dutyCycleEncoder.getDistance()
-
-        # # self.driveWithJoystick(True)
-        # # Duty Cycle Frequency in Hz
-        # frequency = self.dutyCycle.getFrequency()
-        # # Output of duty cycle, ranging from 0 to 1
-        # # 1 is fully on, 0 is fully off
-        # output = self.dutyCycle.getOutput()
-
-        # wpilib.SmartDashboard.putNumber("Frequency", frequency)
-        # wpilib.SmartDashboard.putNumber("Duty Cycle", output)
-
-        wpimath.applyDeadband(self.joystick.getY(), 0.5)
-
-        self.robotDrive.drive(-self.drive_stick.getRawAxis(1), -self.drive_stick.getRawAxis(0))
-
+        self.robotDrive.drive(-self.driveStick.getRawAxis(1), -self.driveStick.getRawAxis(0))
        
+#Intake
         if self.joystick.getRawButton(2):
             self.intake.set(2)
         else:
             self.intake.set(0)
-        #Shooter speed.
+#Shooter speed.
         if self.joystick.getRawButton(1):
-            # self.drive_stick.setRumble(self.drive_stick.RumbleType.kBothRumble, 0.1)
-            self.shooter.set(self.joystick.getRawButton(1) * .55)
+            self.driveStick.setRumble(self.driveStick.RumbleType.kBothRumble, 1)
+            self.shooter.set(self.joystick.getRawButton(1) * .65)  
+            # print("Hex: ", self.dutyCycle.getOutput())
+            # print("AutoAimAngle: ", self.autoAim)  
         elif self.joystick.getRawButton(3):
-            # self.drive_stick.setRumble(self.drive_stick.RumbleType.kBothRumble, 0.1)
-            self.shooter.set(-self.joystick.getRawButton(3) * .55)
+            self.driveStick.setRumble(self.driveStick.RumbleType.kBothRumble, 1)
+            self.shooter.set(-self.joystick.getRawButton(3))
         else:
             self.shooter.set(0)
-            # self.drive_stick.setRumble(self.drive_stick.RumbleType.kBothRumble, 0)
-        #End of shooter speed.
+            self.driveStick.setRumble(self.driveStick.RumbleType.kBothRumble, 0)
         
-        self.shoulder.set(self.joystick.getY() * .5)
+#Shoulder Speed
+        self.shoulder.set(self.joystick.getY())
 
         
-
+#Shooter Angle 1
         if self.joystick.getRawButton(6):
-            self.shoulder.set(0.3)
-            if self.dutyCycle.getOutput() == 0.9750:
-                self.shoulder.set(0)
+            self.shoulder.set(0.2)
+            if self.dutyCycle.getOutput() <= .59:
+                 self.shoulder.set(0)
                 
-
-        if self.joystick.getRawButton(4):
+#Amp Angle
+        if self.joystick.getRawButton(10):
             self.shoulder.set(0.3)
-            if self.dutyCycle.getOutput() == 0.778:
+            if self.dutyCycle.getOutput() <= 0.48:
                 self.shoulder.set(0)
-        # LimeLight.lighting
-        # if self.joystick.getRawButton(11):
-        #     self.setMotors(0, 1)
-        # else:
-        #     self.setMotors(0,0)
+
+#Align w/ Apriltag
+        if self.driveStick.getAButton():  
+            if self.limelight.getNumber("tx", 0) < -4.5:
+                self.setMotors(.1, .4)
+
+            elif self.limelight.getNumber("tx", 0) > 4.5:
+                self.setMotors(.1, -.4)
+
+            elif self.limelight.getNumber("tx", 0) >= -1 and self.limelight.getNumber("tx", 0) <= 1:
+                self.setMotors(0,0)
+                
+# Aim w/ Apriltag    
+        if self.joystick.getRawButton(7):
+            self.shoulder.set(0.2)
+            if self.dutyCycle.getOutput() <= self.autoAim:
+                 self.shoulder.set(0)
