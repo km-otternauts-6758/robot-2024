@@ -14,3 +14,7 @@ sim:
 	python -m robotpy sim
 delete:
 	py -m robotpy undeploy
+commit:
+	git commit -asm "Weekly Push"
+push:
+	git push origin main
