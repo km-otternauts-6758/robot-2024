@@ -15,6 +15,6 @@ sim:
 delete:
 	py -m robotpy undeploy
 commit:
-	git commit -asm "Weekly Push"
+	git commit -asm "Winning Code"
 push:
 	git push origin main
