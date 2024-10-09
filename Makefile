@@ -15,6 +15,6 @@ sim:
 delete:
 	py -m robotpy undeploy
 commit:
-	git commit -asm "Winning Code"
+	git commit -asm "Swerve Update"
 push:
 	git push origin main
